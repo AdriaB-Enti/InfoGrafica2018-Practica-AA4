@@ -64,7 +64,7 @@ namespace Lights {
 }
 
 namespace Scene {
-	int currentScene		= 1;
+	int drawingMethod = 0;
 
 	void renderUI() {
 		
@@ -159,6 +159,37 @@ void GLrender(double currentTime) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	Scene::renderUI();
+
+	float modelSeparation = 0.2f;
+
+
+	switch (Scene::drawingMethod)
+	{
+	case 0:
+		for (int x = 0; x < 100; x++)
+		{
+			for (int y = 0; y < 100; y++)
+			{
+				models3D::trump.objMat = glm::translate(glm::mat4(), glm::vec3(0,0,-20));
+				models3D::drawFlat(models3D::trump);
+				//models3D::drawFlat(models3D::chicken);
+
+			}
+		}
+		break;
+	case 1:
+
+		break;
+	case 2:
+
+		break;
+	default:
+		break;
+	}
+
+
+
+
 
 
 	ImGui::Render();
