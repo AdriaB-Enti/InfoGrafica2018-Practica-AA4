@@ -93,7 +93,7 @@ namespace models3D {
 	void cleanup(model aModel);
 	void draw(model aModel);
 	void drawFlat(model aModel);
-	model dolphin, tuna, sun;
+	model dolphin, tuna, golden_fish, whale,sun;
 }
 
 
@@ -142,8 +142,9 @@ void GLinit(int width, int height) {
 
 	RV::_projection = glm::perspective(RV::FOV, (float)width/(float)height, RV::zNear, RV::zFar);
 
-	models3D::dolphin = models3D::create("models/fish.obj",	glm::vec3(0, 0, 0),	0.4f, glm::vec3(0.97f,0.53f,0.23f));
-	models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(0.39f,0.62f,1.f));
+	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, glm::vec3(0.97f,0.53f,0.23f));
+	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, glm::vec3(0.1f, 0.0f, 0.1f));
+	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
 
 	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
 	//models3D::provaModel = models3D::create("treeTriangulated.obj", glm::vec3(0, 0, 0), 0.2f);
@@ -153,6 +154,8 @@ void GLcleanup() {
 	/*models3D::cleanup(models3D::dolphin);
 	models3D::cleanup(models3D::tuna);*/
 	//models3D::cleanup(models3D::sun);
+	models3D::cleanup(models3D::whale);
+	models3D::cleanup(models3D::golden_fish);
 }
 
 void GLrender(double currentTime) {
@@ -176,9 +179,11 @@ void GLrender(double currentTime) {
 	switch (Scene::drawingMethod)
 	{
 	case 0:												//dibuixar usant el mètode antic
-		for (int x = 0; x < 400; x++)
+		for (int x = 0; x < 200; x++)
 		{
-				models3D::drawFlat(models3D::dolphin);
+				//models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0, 0, -20));
+				models3D::drawFlat(models3D::whale);
+				models3D::drawFlat(models3D::golden_fish);
 
 				//models3D::tuna.objMat = glm::translate(glm::mat4(), glm::vec3(0,0,-20));
 				//models3D::drawFlat(models3D::tuna);
