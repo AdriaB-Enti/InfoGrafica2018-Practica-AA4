@@ -28,7 +28,7 @@ namespace RenderVars {
 
 	glm::mat4 _projection;
 	glm::mat4 _modelView;
-	glm::mat4 _MVP;
+	glm::mat4 _MVP = _modelView = glm::mat4();;
 	glm::mat4 _inv_modelview;
 	glm::vec4 _cameraPoint;
 
@@ -93,7 +93,7 @@ namespace models3D {
 	void cleanup(model aModel);
 	void draw(model aModel);
 	void drawFlat(model aModel);
-	model chicken, trump, sun;
+	model dolphin, tuna, sun;
 }
 
 
@@ -142,17 +142,17 @@ void GLinit(int width, int height) {
 
 	RV::_projection = glm::perspective(RV::FOV, (float)width/(float)height, RV::zNear, RV::zFar);
 
-	models3D::chicken = models3D::create("models/chicken.obj",	glm::vec3(0, 0, 0),	0.004f, glm::vec3(0.97f,0.53f,0.23f));
-	models3D::trump = models3D::create(	"models/trump.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(0.39f,0.62f,1.f));
-	models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
+	models3D::dolphin = models3D::create("models/fish.obj",	glm::vec3(0, 0, 0),	0.4f, glm::vec3(0.97f,0.53f,0.23f));
+	models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(0.39f,0.62f,1.f));
 
+	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
 	//models3D::provaModel = models3D::create("treeTriangulated.obj", glm::vec3(0, 0, 0), 0.2f);
 }
 
 void GLcleanup() {
-	models3D::cleanup(models3D::chicken);
-	models3D::cleanup(models3D::trump);
-	models3D::cleanup(models3D::sun);
+	/*models3D::cleanup(models3D::dolphin);
+	models3D::cleanup(models3D::tuna);*/
+	//models3D::cleanup(models3D::sun);
 }
 
 void GLrender(double currentTime) {
@@ -160,42 +160,45 @@ void GLrender(double currentTime) {
 
 	Scene::renderUI();
 
-	float modelSeparation = 0.2f;
 
+
+	RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
+	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
+	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
+	RV::_MVP = RV::_projection * RV::_modelView;
+
+
+
+
+
+	float modelSeparation = 0.2f;
 
 	switch (Scene::drawingMethod)
 	{
-	case 0:
-		for (int x = 0; x < 100; x++)
+	case 0:												//dibuixar usant el mètode antic
+		for (int x = 0; x < 400; x++)
 		{
-			for (int y = 0; y < 100; y++)
-			{
-				models3D::trump.objMat = glm::translate(glm::mat4(), glm::vec3(0,0,-20));
-				models3D::drawFlat(models3D::trump);
-				//models3D::drawFlat(models3D::chicken);
+				models3D::drawFlat(models3D::dolphin);
+
+				//models3D::tuna.objMat = glm::translate(glm::mat4(), glm::vec3(0,0,-20));
+				//models3D::drawFlat(models3D::tuna);
+				//models3D::drawFlat(models3D::dolphin);
 
 
 
-			}
 		}
 		break;
-	case 1:
+	case 1:												//dibuixar instanciant
 
 		break;
-	case 2:
+	case 2:												//dibuixar MultiDrawIndirect
 
 		break;
 	default:
 		break;
 	}
 
-
-
-
-
-
 	ImGui::Render();
-
 }
 
 
@@ -238,34 +241,13 @@ namespace models3D {
 		"#version 330\n\
 		in vec3 in_Position;\n\
 		in vec3 in_Normal;\n\
-		out vec4 vert_Normal;\n\
 		uniform mat4 objMat;\n\
 		uniform mat4 mv_Mat;\n\
 		uniform mat4 mvpMat;\n\
-		uniform vec4 light1Pos;					\n\
-		uniform vec4 light2Pos;					\n\
-		uniform vec4 light3Pos;					\n\
-		out float lightDifuse;					\n\
-		out float lightDifuse2;					\n\
-		out float lightDifuse3;					\n\
 		void main() {\n\
 			gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);											\n\
-			vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
+			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
 																											\n\
-			vec4 newPos = objMat * vec4(in_Position, 1.0);	//Nomes transformem amb la matriu d'objecte		\n\
-			vec4 newNormal = vec4(in_Normal, 1.0);		//No cal transformar les normals					\n\
-			//Light1 (sun)------------																		\n\
-			float distance1 = distance(light1Pos, newPos);													\n\
-			vec4 lightDir = normalize(light1Pos - newPos);													\n\
-			lightDifuse = dot(newNormal,lightDir)/(4*3.14159*distance1*distance1);							\n\
-			//Light2 (moon)------------																		\n\
-			float distance2 = distance(light2Pos, newPos);													\n\
-			vec4 lightDir2 = normalize(light2Pos - newPos);													\n\
-			lightDifuse2 = dot(newNormal,lightDir2)/(4*3.14159*distance2*distance2);						\n\
-			//Light3 (light bulb)------------																\n\
-			float distance3 = distance(light3Pos, newPos);													\n\
-			vec4 lightDir3 = normalize(light3Pos - newPos);													\n\
-			lightDifuse3 = dot(newNormal,lightDir3)/(4*3.14159*distance3*distance3);						\n\
 		}";
 
 	const char* models3D_fragShader =
