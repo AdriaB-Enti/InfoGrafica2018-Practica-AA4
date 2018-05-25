@@ -174,6 +174,8 @@ void GLrender(double currentTime) {
 				models3D::drawFlat(models3D::trump);
 				//models3D::drawFlat(models3D::chicken);
 
+
+
 			}
 		}
 		break;
