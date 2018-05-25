@@ -28,7 +28,7 @@ namespace RenderVars {
 
 	glm::mat4 _projection;
 	glm::mat4 _modelView;
-	glm::mat4 _MVP = _modelView = glm::mat4();;
+	glm::mat4 _MVP = _modelView;
 	glm::mat4 _inv_modelview;
 	glm::vec4 _cameraPoint;
 
@@ -161,7 +161,7 @@ void GLrender(double currentTime) {
 	Scene::renderUI();
 
 
-
+	RV::_modelView = glm::mat4();
 	RV::_modelView = glm::translate(RV::_modelView, glm::vec3(RV::panv[0], RV::panv[1], RV::panv[2]));
 	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[1], glm::vec3(1.f, 0.f, 0.f));
 	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
