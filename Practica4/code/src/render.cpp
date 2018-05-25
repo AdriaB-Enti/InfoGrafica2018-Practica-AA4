@@ -67,7 +67,13 @@ namespace Scene {
 	int drawingMethod = 0;
 
 	void renderUI() {
-		
+		int* option = new int();
+		ImGui::Begin("Parameters");
+		ImGui::Separator();
+		ImGui::RadioButton("Looped", option, 0);
+		ImGui::RadioButton("Instanced", option, 1);
+		ImGui::RadioButton("MultiDrawInstanced", option, 2);
+		ImGui::End();
 	}
 
 	}
@@ -175,7 +181,7 @@ void GLrender(double currentTime) {
 
 	switch (Scene::drawingMethod)
 	{
-	case 0:												//dibuixar usant el mètode antic
+	case 0:												//dibuixar usant el mï¿½tode antic
 		for (int x = 0; x < 400; x++)
 		{
 				models3D::drawFlat(models3D::dolphin);
