@@ -179,9 +179,13 @@ void GLrender(double currentTime) {
 	switch (Scene::drawingMethod)
 	{
 	case 0:												//dibuixar usant el mètode antic
-		for (int x = 0; x < 200; x++)
+		for (int x = 0; x < 10; x++)
 		{
-				//models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0, 0, -20));
+			for (int y = 0; y < 10; y++) {
+
+				models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
+				models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));
+
 				models3D::drawFlat(models3D::whale);
 				models3D::drawFlat(models3D::golden_fish);
 
@@ -189,7 +193,7 @@ void GLrender(double currentTime) {
 				//models3D::drawFlat(models3D::tuna);
 				//models3D::drawFlat(models3D::dolphin);
 
-
+			}
 
 		}
 		break;
