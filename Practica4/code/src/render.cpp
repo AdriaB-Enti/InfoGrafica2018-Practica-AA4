@@ -64,15 +64,15 @@ namespace Lights {
 }
 
 namespace Scene {
-	int drawingMethod = 0;
+	static int renderOption = 0;
 
 	void renderUI() {
-		int* option = new int();
+		
 		ImGui::Begin("Parameters");
 		ImGui::Separator();
-		ImGui::RadioButton("Looped", option, 0);
-		ImGui::RadioButton("Instanced", option, 1);
-		ImGui::RadioButton("MultiDrawInstanced", option, 2);
+		ImGui::RadioButton("Looped", &renderOption, 0);
+		ImGui::RadioButton("Instanced", &renderOption, 1);
+		ImGui::RadioButton("MultiDrawInstanced", &renderOption, 2);
 		ImGui::End();
 	}
 
@@ -86,16 +86,17 @@ namespace models3D {
 		std::vector< glm::vec3 > vertices;
 		std::vector< glm::vec2 > uvs;
 		std::vector< glm::vec3 > normals;
+		std::vector< glm::vec3 > offsetPositions;
 		glm::vec3 color;
 	    glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[2];					//2: Vertex positions and normals
+		GLuint vbo[3];					//3: Vertex positions and normals. + offset model positions
 		GLuint shaders[3];
 		GLuint program, flatProgram;
 	};
 
-	model create(std::string modelName, glm::vec3 position, float scale, glm::vec3 initColor = glm::vec3(0.7f, 0.65f, 0.34f));
+	model create(std::string modelName, glm::vec3 position, float scale, bool even, glm::vec3 initColor = glm::vec3(0.7f, 0.65f, 0.34f));
 	void cleanup(model aModel);
 	void draw(model aModel);
 	void drawFlat(model aModel);
@@ -148,8 +149,8 @@ void GLinit(int width, int height) {
 
 	RV::_projection = glm::perspective(RV::FOV, (float)width/(float)height, RV::zNear, RV::zFar);
 
-	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, glm::vec3(0.97f,0.53f,0.23f));
-	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, glm::vec3(0.1f, 0.0f, 0.1f));
+	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, true, glm::vec3(0.97f,0.53f,0.23f));
+	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, false, glm::vec3(0.1f, 0.0f, 0.1f));
 	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
 
 	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
@@ -177,12 +178,9 @@ void GLrender(double currentTime) {
 	RV::_MVP = RV::_projection * RV::_modelView;
 
 
-
-
-
 	float modelSeparation = 0.2f;
 
-	switch (Scene::drawingMethod)
+	switch (Scene::renderOption)
 	{
 	case 0:												//dibuixar usant el m�tode antic
 		for (int x = 0; x < 10; x++)
@@ -337,7 +335,7 @@ namespace models3D {
 			}																																\n\
 		}";
 
-	model create(std::string modelName, glm::vec3 position, float scale, glm::vec3 initColor) {
+	model create(std::string modelName, glm::vec3 position, float scale, bool even, glm::vec3 initColor) {
 		model newModel;
 		newModel.color = initColor;
 		newModel.objMat = glm::scale(glm::mat4(), glm::vec3(scale));
@@ -357,6 +355,30 @@ namespace models3D {
 		else
 			std::cout << "ERROR AT LOADING OBJECT \n";
 
+		//Create offset positions
+		glm::vec3 offPos = position;
+		glm::vec3 OFFSET = glm::vec3(10.0, 10.0, -20);
+
+		for (int x = 0; x < 10; x++)
+		{
+			for (int y = 0; y < 10; y++) {
+
+				glm::vec3 offPos = glm::vec3(0);
+				if ((even && x % 2 == 0) || (!even && x % 2 == 1))
+				{
+					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);	//afegir 5.0 a la x si no es par
+					if (!even)
+					{
+						offPos += glm::vec3(5, 0, 0);
+					}
+					newModel.offsetPositions.push_back(offPos);
+					/*models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
+					models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));*/
+				}
+
+			}
+		}
+
 		//Create LoadedObject program
 		glGenVertexArrays(1, &newModel.vao);
 		glBindVertexArray(newModel.vao);
@@ -372,9 +394,17 @@ namespace models3D {
 		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(1);
 
+		//passar les posicions dels models
+		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[2]);
+		glBufferData(GL_ARRAY_BUFFER, newModel.normals.size() * sizeof(glm::vec3), &newModel.normals[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(2);
+
+
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 
 		newModel.shaders[0] = compileShader(models3D_vertShader, GL_VERTEX_SHADER, "objectVert");
 		newModel.shaders[1] = compileShader(models3D_toonShader, GL_FRAGMENT_SHADER, "objectToonFrag");
@@ -385,6 +415,7 @@ namespace models3D {
 		glAttachShader(newModel.program, newModel.shaders[1]);
 		glBindAttribLocation(newModel.program, 0, "in_Position");
 		glBindAttribLocation(newModel.program, 1, "in_Normal");
+		//glBindAttribLocation(newModel.flatProgram, 1, "in_offset");
 		linkProgram(newModel.program);
 
 		//Flat shader program
@@ -393,6 +424,7 @@ namespace models3D {
 		glAttachShader(newModel.flatProgram, newModel.shaders[2]);
 		glBindAttribLocation(newModel.flatProgram, 0, "in_Position");
 		glBindAttribLocation(newModel.flatProgram, 1, "in_Normal");
+		//glBindAttribLocation(newModel.flatProgram, 1, "in_offset");
 		linkProgram(newModel.flatProgram);
 
 
@@ -446,5 +478,9 @@ namespace models3D {
 
 		glUseProgram(0);
 		glBindVertexArray(0);
+	}
+
+	void drawInstanced(model aModel) {
+		//glDrawArraysInstancedBaseInstance(
 	}
 }
