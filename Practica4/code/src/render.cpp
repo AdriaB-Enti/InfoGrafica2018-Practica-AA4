@@ -92,14 +92,15 @@ namespace models3D {
 
 		GLuint vao;
 		GLuint vbo[3];					//3: Vertex positions and normals. + offset model positions
-		GLuint shaders[3];
-		GLuint program, flatProgram;
+		GLuint shaders[4];
+		GLuint program, flatProgram, instancedProgram;
 	};
 
 	model create(std::string modelName, glm::vec3 position, float scale, bool even, glm::vec3 initColor = glm::vec3(0.7f, 0.65f, 0.34f));
 	void cleanup(model aModel);
 	void draw(model aModel);
 	void drawFlat(model aModel);
+	void drawInstanced(model aModel, int count);
 	model dolphin, tuna, golden_fish, whale,sun;
 }
 
@@ -202,7 +203,8 @@ void GLrender(double currentTime) {
 		}
 		break;
 	case 1:												//dibuixar instanciant
-
+		models3D::drawInstanced(models3D::whale, 50);
+		models3D::drawInstanced(models3D::golden_fish, 50);
 		break;
 	case 2:												//dibuixar MultiDrawIndirect
 
@@ -259,6 +261,20 @@ namespace models3D {
 		uniform mat4 mvpMat;\n\
 		void main() {\n\
 			gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);											\n\
+			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
+																											\n\
+		}";
+
+	const char* models3D_vertInstancedShader =
+		"#version 330\n\
+		in vec3 in_Position;\n\
+		in vec3 in_Normal;\n\
+		in vec3 in_offset;\n\
+		uniform mat4 objMat;\n\
+		uniform mat4 mv_Mat;\n\
+		uniform mat4 mvpMat;\n\
+		void main() {\n\
+			gl_Position = mvpMat * objMat * vec4(in_Position + in_offset, 1.0);											\n\
 			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
 																											\n\
 		}";
@@ -363,14 +379,16 @@ namespace models3D {
 		{
 			for (int y = 0; y < 10; y++) {
 
-				glm::vec3 offPos = glm::vec3(0);
+				offPos = glm::vec3(0);
 				if ((even && x % 2 == 0) || (!even && x % 2 == 1))
 				{
 					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);	//afegir 5.0 a la x si no es par
+
 					if (!even)
 					{
-						offPos += glm::vec3(5, 0, 0);
+						offPos.x += 5;
 					}
+
 					newModel.offsetPositions.push_back(offPos);
 					/*models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
 					models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));*/
@@ -396,10 +414,10 @@ namespace models3D {
 
 		//passar les posicions dels models
 		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[2]);
-		glBufferData(GL_ARRAY_BUFFER, newModel.normals.size() * sizeof(glm::vec3), &newModel.normals[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, newModel.offsetPositions.size() * sizeof(glm::vec3), &newModel.offsetPositions[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)2, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(2);
-
+		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -409,13 +427,14 @@ namespace models3D {
 		newModel.shaders[0] = compileShader(models3D_vertShader, GL_VERTEX_SHADER, "objectVert");
 		newModel.shaders[1] = compileShader(models3D_toonShader, GL_FRAGMENT_SHADER, "objectToonFrag");
 		newModel.shaders[2] = compileShader(models3D_flatShader, GL_FRAGMENT_SHADER, "flatFrag");
+		newModel.shaders[3] = compileShader(models3D_vertInstancedShader, GL_VERTEX_SHADER, "instancedVert");
 
 		newModel.program = glCreateProgram();
 		glAttachShader(newModel.program, newModel.shaders[0]);
 		glAttachShader(newModel.program, newModel.shaders[1]);
 		glBindAttribLocation(newModel.program, 0, "in_Position");
 		glBindAttribLocation(newModel.program, 1, "in_Normal");
-		//glBindAttribLocation(newModel.flatProgram, 1, "in_offset");
+		//glBindAttribLocation(newModel.flatProgram, 1, "in_offset");	//afegir quan fem servir el shader normal
 		linkProgram(newModel.program);
 
 		//Flat shader program
@@ -424,15 +443,24 @@ namespace models3D {
 		glAttachShader(newModel.flatProgram, newModel.shaders[2]);
 		glBindAttribLocation(newModel.flatProgram, 0, "in_Position");
 		glBindAttribLocation(newModel.flatProgram, 1, "in_Normal");
-		//glBindAttribLocation(newModel.flatProgram, 1, "in_offset");
+		glBindAttribLocation(newModel.flatProgram, 2, "in_offset");
 		linkProgram(newModel.flatProgram);
+
+		//Flat shader + instanced drawing program
+		newModel.instancedProgram = glCreateProgram();
+		glAttachShader(newModel.instancedProgram, newModel.shaders[3]);
+		glAttachShader(newModel.instancedProgram, newModel.shaders[2]);
+		glBindAttribLocation(newModel.instancedProgram, 0, "in_Position");
+		glBindAttribLocation(newModel.instancedProgram, 1, "in_Normal");
+		glBindAttribLocation(newModel.instancedProgram, 2, "in_offset");
+		linkProgram(newModel.instancedProgram);
 
 
 		return newModel;
 	}
 
 	void cleanup(model aModel) {
-		glDeleteBuffers(2, aModel.vbo);
+		glDeleteBuffers(3, aModel.vbo);
 		glDeleteVertexArrays(1, &aModel.vao);
 
 		glDeleteProgram(aModel.program);
@@ -480,7 +508,14 @@ namespace models3D {
 		glBindVertexArray(0);
 	}
 
-	void drawInstanced(model aModel) {
-		//glDrawArraysInstancedBaseInstance(
+	void drawInstanced(model aModel, int count) {
+		glBindVertexArray(aModel.vao);
+		glUseProgram(aModel.instancedProgram);
+		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
+		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
+		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+		glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
+		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
+		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, aModel.vertices.size(), count, 0);
 	}
 }
