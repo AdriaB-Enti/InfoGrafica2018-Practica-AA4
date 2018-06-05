@@ -94,6 +94,7 @@ namespace models3D {
 		std::vector< glm::vec2 > uvs;
 		std::vector< glm::vec3 > normals;
 		std::vector< glm::vec3 > offsetPositions;
+		//colors
 		glm::vec3 color;
 	    glm::mat4 objMat = glm::mat4(1.f);
 
@@ -382,15 +383,15 @@ namespace models3D {
 		//Create offset positions for Instanced drawing
 		glm::vec3 offPos = position;
 		glm::vec3 OFFSET = glm::vec3(10.0, 10.0, -20);
-
-		for (int x = 0; x < 10; x++)
+		
+		for (int x = 0; x < constants::MAX_HORIZONTAL; x++)
 		{
-			for (int y = 0; y < 10; y++) {
+			for (int y = 0; y < constants::MAX_VERTICAL; y++) {
 
 				offPos = glm::vec3(0);
 				if ((even && x % 2 == 0) || (!even && x % 2 == 1))
 				{
-					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);	//afegir 5.0 a la x si no es par
+					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);	//Add 5.0 if x is not even
 
 					if (!even)
 					{
@@ -398,8 +399,6 @@ namespace models3D {
 					}
 
 					newModel.offsetPositions.push_back(offPos);
-					/*models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
-					models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));*/
 				}
 
 			}
@@ -451,7 +450,7 @@ namespace models3D {
 		glAttachShader(newModel.flatProgram, newModel.shaders[2]);
 		glBindAttribLocation(newModel.flatProgram, 0, "in_Position");
 		glBindAttribLocation(newModel.flatProgram, 1, "in_Normal");
-		glBindAttribLocation(newModel.flatProgram, 2, "in_offset");
+		//glBindAttribLocation(newModel.flatProgram, 2, "in_offset");	//afegir quan fem servir el shader normal
 		linkProgram(newModel.flatProgram);
 
 		//Flat shader + instanced drawing program
