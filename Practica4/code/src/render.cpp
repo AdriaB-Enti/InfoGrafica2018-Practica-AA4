@@ -10,7 +10,14 @@
 
 #include "GL_framework.h"
 
+
 #define DEBUG_LOG false
+
+namespace constants {
+	const int MAX_HORIZONTAL = 10;
+	const int MAX_VERTICAL = 10;
+}
+
 
 extern bool loadOBJ(const char * path, std::vector < glm::vec3 > & out_vertices, std::vector < glm::vec2 > & out_uvs, std::vector < glm::vec3 > & out_normals);
 
@@ -183,25 +190,26 @@ void GLrender(double currentTime) {
 
 	switch (Scene::renderOption)
 	{
-	case 0:												//dibuixar usant el m�tode antic
-		for (int x = 0; x < 10; x++)
+	case 0:												//Draw using naive method (multiple draw calls)
+	{
+		for (int x = 0; x < constants::MAX_HORIZONTAL; x++)
 		{
-			for (int y = 0; y < 10; y++) {
+			for (int y = 0; y < constants::MAX_VERTICAL; y++) {
 
 				models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
 				models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));
 
+				models3D::whale.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
+				models3D::golden_fish.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
+
 				models3D::drawFlat(models3D::whale);
 				models3D::drawFlat(models3D::golden_fish);
-
-				//models3D::tuna.objMat = glm::translate(glm::mat4(), glm::vec3(0,0,-20));
-				//models3D::drawFlat(models3D::tuna);
-				//models3D::drawFlat(models3D::dolphin);
 
 			}
 
 		}
-		break;
+	}
+	break;
 	case 1:												//dibuixar instanciant
 		models3D::drawInstanced(models3D::whale, 50);
 		models3D::drawInstanced(models3D::golden_fish, 50);
@@ -371,7 +379,7 @@ namespace models3D {
 		else
 			std::cout << "ERROR AT LOADING OBJECT \n";
 
-		//Create offset positions
+		//Create offset positions for Instanced drawing
 		glm::vec3 offPos = position;
 		glm::vec3 OFFSET = glm::vec3(10.0, 10.0, -20);
 
@@ -518,4 +526,6 @@ namespace models3D {
 		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
 		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, aModel.vertices.size(), count, 0);
 	}
+
+
 }
