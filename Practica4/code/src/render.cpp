@@ -93,14 +93,14 @@ namespace models3D {
 		std::vector< glm::vec3 > vertices;
 		std::vector< glm::vec2 > uvs;
 		std::vector< glm::vec3 > normals;
-		std::vector< glm::vec3 > offsetPositions;
-		//colors
+		std::vector< glm::vec3 > offsetPositions;	//to be used in instanced drawing
+		std::vector< glm::vec3 > allColors;			//to be used in instanced drawing
 		glm::vec3 color;
 	    glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[3];					//3: Vertex positions and normals. + offset model positions
-		GLuint shaders[4];
+		GLuint vbo[4];					//3: Vertex positions and normals. + offset model positions + model colors
+		GLuint shaders[5];
 		GLuint program, flatProgram, instancedProgram;
 	};
 
@@ -109,6 +109,7 @@ namespace models3D {
 	void draw(model aModel);
 	void drawFlat(model aModel);
 	void drawInstanced(model aModel, int count);
+	void multiDraw(model combinedModels, int count);
 	model dolphin, tuna, golden_fish, whale,sun;
 }
 
@@ -212,8 +213,8 @@ void GLrender(double currentTime) {
 	}
 	break;
 	case 1:												//dibuixar instanciant
-		models3D::drawInstanced(models3D::whale, 50);
-		models3D::drawInstanced(models3D::golden_fish, 50);
+		models3D::drawInstanced(models3D::whale, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
+		models3D::drawInstanced(models3D::golden_fish, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		break;
 	case 2:												//dibuixar MultiDrawIndirect
 
@@ -279,13 +280,15 @@ namespace models3D {
 		in vec3 in_Position;\n\
 		in vec3 in_Normal;\n\
 		in vec3 in_offset;\n\
+		in vec3 in_color;									\n\
+		out vec3 in_colorFrag;\n\
 		uniform mat4 objMat;\n\
 		uniform mat4 mv_Mat;\n\
 		uniform mat4 mvpMat;\n\
 		void main() {\n\
 			gl_Position = mvpMat * objMat * vec4(in_Position + in_offset, 1.0);											\n\
+			in_colorFrag = in_color;																								\n\
 			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
-																											\n\
 		}";
 
 	const char* models3D_fragShader =
@@ -295,6 +298,15 @@ namespace models3D {
 		in float lightDifuse;\n\
 		void main() {\n\
 			out_Color = vec4(color.xyz*0.5+color.xyz*lightDifuse, 1.0 );\n\
+		}";
+
+	//Draws instanced objects with their color
+	const char* models3D_instancedFragShader =
+		"#version 330										\n\
+		out vec4 out_Color;									\n\
+		in vec3 in_colorFrag;									\n\
+		void main() {										\n\
+			out_Color = vec4(in_colorFrag.xyz, 1.0 );			\n\
 		}";
 
 	//For drawing objects with a simple flat color.
@@ -380,6 +392,7 @@ namespace models3D {
 		else
 			std::cout << "ERROR AT LOADING OBJECT \n";
 
+
 		//Create offset positions for Instanced drawing
 		glm::vec3 offPos = position;
 		glm::vec3 OFFSET = glm::vec3(10.0, 10.0, -20);
@@ -391,14 +404,15 @@ namespace models3D {
 				offPos = glm::vec3(0);
 				if ((even && x % 2 == 0) || (!even && x % 2 == 1))
 				{
-					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);	//Add 5.0 if x is not even
+					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);
 
-					if (!even)
+					if (!even)												//Add 5.0 if x is not even
 					{
 						offPos.x += 5;
 					}
 
 					newModel.offsetPositions.push_back(offPos);
+					newModel.allColors.push_back(glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f));
 				}
 
 			}
@@ -407,7 +421,7 @@ namespace models3D {
 		//Create LoadedObject program
 		glGenVertexArrays(1, &newModel.vao);
 		glBindVertexArray(newModel.vao);
-		glGenBuffers(2, newModel.vbo);		//------- Object vertexs and normals
+		glGenBuffers(4, newModel.vbo);		//------- Object vertexs, normals, offset positions & colors
 
 		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, newModel.vertices.size() * sizeof(glm::vec3), &newModel.vertices[0], GL_STATIC_DRAW);
@@ -419,12 +433,19 @@ namespace models3D {
 		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(1);
 
-		//passar les posicions dels models
+		//'send' model positions
 		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[2]);
 		glBufferData(GL_ARRAY_BUFFER, newModel.offsetPositions.size() * sizeof(glm::vec3), &newModel.offsetPositions[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)2, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(2);
 		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
+
+		//'send' model colors-TODO--------------------------------------------
+		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[3]);
+		glBufferData(GL_ARRAY_BUFFER, newModel.allColors.size() * sizeof(glm::vec3), &newModel.allColors[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(3);
+		glVertexAttribDivisor(3, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -435,6 +456,7 @@ namespace models3D {
 		newModel.shaders[1] = compileShader(models3D_toonShader, GL_FRAGMENT_SHADER, "objectToonFrag");
 		newModel.shaders[2] = compileShader(models3D_flatShader, GL_FRAGMENT_SHADER, "flatFrag");
 		newModel.shaders[3] = compileShader(models3D_vertInstancedShader, GL_VERTEX_SHADER, "instancedVert");
+		newModel.shaders[4] = compileShader(models3D_instancedFragShader, GL_FRAGMENT_SHADER, "instancedFragShader");
 
 		newModel.program = glCreateProgram();
 		glAttachShader(newModel.program, newModel.shaders[0]);
@@ -453,21 +475,24 @@ namespace models3D {
 		//glBindAttribLocation(newModel.flatProgram, 2, "in_offset");	//afegir quan fem servir el shader normal
 		linkProgram(newModel.flatProgram);
 
-		//Flat shader + instanced drawing program
+		//Instanced vertex + instanced color drawing program
 		newModel.instancedProgram = glCreateProgram();
 		glAttachShader(newModel.instancedProgram, newModel.shaders[3]);
-		glAttachShader(newModel.instancedProgram, newModel.shaders[2]);
+		glAttachShader(newModel.instancedProgram, newModel.shaders[4]);
 		glBindAttribLocation(newModel.instancedProgram, 0, "in_Position");
 		glBindAttribLocation(newModel.instancedProgram, 1, "in_Normal");
 		glBindAttribLocation(newModel.instancedProgram, 2, "in_offset");
+		glBindAttribLocation(newModel.instancedProgram, 3, "in_color");
 		linkProgram(newModel.instancedProgram);
 
+		//Flat shader +  multiDrawIndirect
+		//TODO
 
 		return newModel;
 	}
 
 	void cleanup(model aModel) {
-		glDeleteBuffers(3, aModel.vbo);
+		glDeleteBuffers(4, aModel.vbo);
 		glDeleteVertexArrays(1, &aModel.vao);
 
 		glDeleteProgram(aModel.program);
@@ -475,6 +500,8 @@ namespace models3D {
 		glDeleteShader(aModel.shaders[0]);
 		glDeleteShader(aModel.shaders[1]);
 		glDeleteShader(aModel.shaders[2]);
+		glDeleteShader(aModel.shaders[3]);
+		glDeleteShader(aModel.shaders[4]);
 	}
 
 	void draw(model aModel) {
@@ -521,10 +548,12 @@ namespace models3D {
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
+		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
 		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
 		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, aModel.vertices.size(), count, 0);
 	}
 
+	void multiDraw(model combinedModels, int count) {
 
+	}
 }
