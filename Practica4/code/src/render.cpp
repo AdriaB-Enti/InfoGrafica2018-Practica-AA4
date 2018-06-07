@@ -16,6 +16,7 @@
 namespace constants {
 	const int MAX_HORIZONTAL = 10;
 	const int MAX_VERTICAL = 10;
+	const int TOTAL = MAX_HORIZONTAL* MAX_VERTICAL;	//total nº of models per each type
 }
 
 
@@ -135,6 +136,7 @@ namespace models3D {
 	model create(std::string modelName, glm::vec3 position, float scale, bool even, glm::vec3 initColor = glm::vec3(0.7f, 0.65f, 0.34f));
 	combinedModel combineModels(model firstModel, model secondModel);
 	void cleanup(model aModel);
+	void cleanup(combinedModel combined);
 	void draw(model aModel);
 	void drawFlat(model aModel);
 	void drawInstanced(model aModel, int count);
@@ -192,6 +194,7 @@ void GLinit(int width, int height) {
 	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, true, glm::vec3(0.1f, 0.0f, 0.1f));
 	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, false, glm::vec3(0.97f,0.53f,0.23f));
 
+	//Used for multiDrawIndirect
 	models3D::allModels = models3D::combineModels(models3D::whale, models3D::golden_fish);
 
 
@@ -206,6 +209,8 @@ void GLcleanup() {
 	//models3D::cleanup(models3D::sun);
 	models3D::cleanup(models3D::whale);
 	models3D::cleanup(models3D::golden_fish);
+
+	models3D::cleanup(models3D::allModels);
 }
 
 void GLrender(double currentTime) {
@@ -252,7 +257,7 @@ void GLrender(double currentTime) {
 		models3D::drawInstanced(models3D::whale, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		models3D::drawInstanced(models3D::golden_fish, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		break;
-	case 2:												//dibuixar MultiDrawIndirect
+	case 2:												//Draw using MultiDrawArraysIndirect
 		models3D::multiDraw(models3D::allModels);
 		break;
 	default:
@@ -526,16 +531,29 @@ namespace models3D {
 		combinedModel combined;
 		combined.objMat = glm::mat4();
 		combined.vertices = firstModel.vertices;
+		combined.vertices.insert(combined.vertices.end(), secondModel.vertices.begin(), secondModel.vertices.end()); //add 1st and 2nd model vertices together
+		
 		combined.normals = firstModel.normals;
-		combined.offsetPositions = firstModel.offsetPositions;
-		combined.allColors = firstModel.allColors;
+		combined.normals.insert(combined.normals.end(), secondModel.normals.begin(), secondModel.normals.end());
 
-		//Draw command for the first model
+		combined.offsetPositions = firstModel.offsetPositions;
+		combined.offsetPositions.insert(combined.offsetPositions.end(), secondModel.offsetPositions.begin(), secondModel.offsetPositions.end());
+
+		combined.allColors = firstModel.allColors;
+		combined.allColors.insert(combined.allColors.end(), secondModel.allColors.begin(), secondModel.allColors.end());
+
+
+		//Draw command for the "first" models
 		combined.commands[0].vertexCount	= firstModel.vertices.size();
 		combined.commands[0].instanceCount	= firstModel.offsetPositions.size();
 		combined.commands[0].firstIndex		= 0;
 		combined.commands[0].baseInstance	= 0;
 
+		//Draw command for the "second" models
+		combined.commands[1].vertexCount	= secondModel.vertices.size();
+		combined.commands[1].instanceCount	= secondModel.offsetPositions.size();
+		combined.commands[1].firstIndex		= firstModel.vertices.size();	//"Second" model vertex's begin where the "first" models end
+		combined.commands[1].baseInstance	= constants::TOTAL;
 
 		//Create LoadedObject program
 		glGenVertexArrays(1, &combined.vao);
@@ -568,7 +586,7 @@ namespace models3D {
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);	//...fa falta...?
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 
 		combined.shaders[0] = compileShader(models3D_vertInstancedShader, GL_VERTEX_SHADER, "instancedVert");
@@ -584,7 +602,7 @@ namespace models3D {
 		linkProgram(combined.multiProgram);
 
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
-		glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(combined.commands[0]), &combined.commands[0], GL_STATIC_DRAW);	//TODO: tota la array
+		glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(combined.commands), &combined.commands, GL_STATIC_DRAW);
 
 
 		return combined;
@@ -602,9 +620,18 @@ namespace models3D {
 		glDeleteShader(aModel.shaders[3]);
 		glDeleteShader(aModel.shaders[4]);
 
-		//TODO: cleanup combinedModel
+	}
+
+	void cleanup(combinedModel combined) {
+		glDeleteBuffers(5, combined.vbo);
+		glDeleteVertexArrays(1, &combined.vao);
+
+		glDeleteProgram(combined.multiProgram);
+		glDeleteShader(combined.shaders[0]);
+		glDeleteShader(combined.shaders[1]);
 
 	}
+
 
 	void draw(model aModel) {
 		/*glBindVertexArray(aModel.vao);
@@ -631,6 +658,7 @@ namespace models3D {
 		glUseProgram(0);
 		glBindVertexArray(0);*/
 	}
+
 	void drawFlat(model aModel) {
 		glBindVertexArray(aModel.vao);
 		glUseProgram(aModel.flatProgram);
@@ -670,7 +698,7 @@ namespace models3D {
 
 
 		//One single draw call... to rule them all
-		glMultiDrawArraysIndirect(GL_TRIANGLES, 0, 1, 0);
+		glMultiDrawArraysIndirect(GL_TRIANGLES, 0, 2, 0);
 
 
 		glUseProgram(0);
