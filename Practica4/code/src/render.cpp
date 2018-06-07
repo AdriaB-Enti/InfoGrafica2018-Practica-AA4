@@ -124,9 +124,11 @@ namespace models3D {
 		glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[4];					//4: Vertex positions + normals + offset model positions + model colors
+		GLuint vbo[5];					//4: Vertex positions + normals + offset model positions + model colors
 		GLuint shaders[2];				//Vertex and fragment
 		GLuint multiProgram;
+
+		SDrawArraysIndirectCommand commands[2];
 	};
 
 
@@ -528,11 +530,17 @@ namespace models3D {
 		combined.offsetPositions = firstModel.offsetPositions;
 		combined.allColors = firstModel.allColors;
 
+		//Draw command for the first model
+		combined.commands[0].vertexCount	= firstModel.vertices.size();
+		combined.commands[0].instanceCount	= firstModel.offsetPositions.size();
+		combined.commands[0].firstIndex		= 0;
+		combined.commands[0].baseInstance	= 0;
+
 
 		//Create LoadedObject program
 		glGenVertexArrays(1, &combined.vao);
 		glBindVertexArray(combined.vao);
-		glGenBuffers(4, combined.vbo);		//------- Object vertexs, normals, offset positions & colors
+		glGenBuffers(5, combined.vbo);		//------- Object vertexs, normals, offset positions & colors
 
 		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, combined.vertices.size() * sizeof(glm::vec3), &combined.vertices[0], GL_STATIC_DRAW);
@@ -551,7 +559,7 @@ namespace models3D {
 		glEnableVertexAttribArray(2);
 		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
 
-										//'send' model colors-TODO--------------------------------------------
+										//'send' model colors
 		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[3]);
 		glBufferData(GL_ARRAY_BUFFER, combined.allColors.size() * sizeof(glm::vec3), &combined.allColors[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)3, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -560,7 +568,7 @@ namespace models3D {
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);	//...fa falta...?
 
 
 		combined.shaders[0] = compileShader(models3D_vertInstancedShader, GL_VERTEX_SHADER, "instancedVert");
@@ -575,6 +583,8 @@ namespace models3D {
 		glBindAttribLocation(combined.multiProgram, 3, "in_color");
 		linkProgram(combined.multiProgram);
 
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
+		glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(combined.commands[0]), &combined.commands[0], GL_STATIC_DRAW);	//TODO: tota la array
 
 
 		return combined;
@@ -591,6 +601,9 @@ namespace models3D {
 		glDeleteShader(aModel.shaders[2]);
 		glDeleteShader(aModel.shaders[3]);
 		glDeleteShader(aModel.shaders[4]);
+
+		//TODO: cleanup combinedModel
+
 	}
 
 	void draw(model aModel) {
@@ -647,29 +660,22 @@ namespace models3D {
 
 	void multiDraw(combinedModel combined) {
 		glBindVertexArray(combined.vao);
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
 		glUseProgram(combined.multiProgram);
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(combined.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
 		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
-		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
-		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, combined.vertices.size(), combined.offsetPositions.size(), 0);
-		
+		//glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, combined.vertices.size(), combined.offsetPositions.size(), 0);
+
+
+		//One single draw call... to rule them all
+		glMultiDrawArraysIndirect(GL_TRIANGLES, 0, 1, 0);
+
+
 		glUseProgram(0);
 		glBindVertexArray(0);
 
 
-
-
-
-
-
-
-
-
 	}
-
-
-
-
 }
