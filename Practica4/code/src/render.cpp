@@ -159,8 +159,8 @@ void GLinit(int width, int height) {
 
 	RV::_projection = glm::perspective(RV::FOV, (float)width/(float)height, RV::zNear, RV::zFar);
 
-	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, true, glm::vec3(0.97f,0.53f,0.23f));
-	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, false, glm::vec3(0.1f, 0.0f, 0.1f));
+	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, true, glm::vec3(0.1f, 0.0f, 0.1f));
+	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, false, glm::vec3(0.97f,0.53f,0.23f));
 	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
 
 	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
@@ -212,7 +212,10 @@ void GLrender(double currentTime) {
 		}
 	}
 	break;
-	case 1:												//dibuixar instanciant
+	case 1:												//Draw instancing
+		models3D::whale.objMat = glm::mat4();			//reset objMat's so the models don't appear displaced
+		models3D::golden_fish.objMat = glm::mat4();
+
 		models3D::drawInstanced(models3D::whale, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		models3D::drawInstanced(models3D::golden_fish, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		break;
@@ -402,11 +405,10 @@ namespace models3D {
 			for (int y = 0; y < constants::MAX_VERTICAL; y++) {
 
 				offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);
-				//if (!even)												//Add 5.0 if is not even--------- doesn't seem to be necessary......
-				//{
-				//	offPos += glm::vec3(5.0,0,0);
-				//	//offPos.x += 5;
-				//}
+				if (!even)												//Add 5.0 if is not even
+				{
+					offPos.x += 5;
+				}
 
 				newModel.offsetPositions.push_back(offPos);
 				newModel.allColors.push_back(glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f));
@@ -547,6 +549,9 @@ namespace models3D {
 		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
 		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
 		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, aModel.vertices.size(), count, 0);
+
+		glUseProgram(0);
+		glBindVertexArray(0);
 	}
 
 	void multiDraw(model combinedModels, int count) {
