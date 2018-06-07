@@ -401,19 +401,15 @@ namespace models3D {
 		{
 			for (int y = 0; y < constants::MAX_VERTICAL; y++) {
 
-				offPos = glm::vec3(0);
-				if ((even && x % 2 == 0) || (!even && x % 2 == 1))
-				{
-					offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);
+				offPos = glm::vec3(OFFSET.x * x, OFFSET.y * y, -20);
+				//if (!even)												//Add 5.0 if is not even--------- doesn't seem to be necessary......
+				//{
+				//	offPos += glm::vec3(5.0,0,0);
+				//	//offPos.x += 5;
+				//}
 
-					if (!even)												//Add 5.0 if x is not even
-					{
-						offPos.x += 5;
-					}
-
-					newModel.offsetPositions.push_back(offPos);
-					newModel.allColors.push_back(glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f));
-				}
+				newModel.offsetPositions.push_back(offPos);
+				newModel.allColors.push_back(glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f));
 
 			}
 		}
