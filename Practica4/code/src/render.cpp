@@ -49,7 +49,7 @@ namespace RenderVars {
 		bool waspressed = false;
 	} prevMouse;
 
-	float panv[3] = { 0.f, 0.f, -20.f };							//Change the '-50f' if camera has to start further or closer
+	float panv[3] = { -46.f, -46.f, -95.f };							//Change the '-50f' if camera has to start further or closer
 	float rota[2] = { 0.f, 0.f };
 	void setPosition(glm::vec3 newPos) {
 		panv[0] = newPos.x;
@@ -313,7 +313,7 @@ namespace models3D {
 		uniform mat4 mv_Mat;						\n\
 		uniform mat4 mvpMat;						\n\
 		uniform float currentTime;					\n\
-		uniform float xIndex;					\n\
+		uniform float xIndex;						\n\
 		void main() {\n\
 			gl_Position = mvpMat * objMat * vec4(in_Position + vec3(0.,0.,sin((3.1415*xIndex/3.) + currentTime*2.)*5.), 1.0);					\n\
 			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
@@ -321,17 +321,18 @@ namespace models3D {
 		}";
 
 	const char* models3D_vertInstancedShader =
-		"#version 330\n\
-		in vec3 in_Position;\n\
-		in vec3 in_Normal;\n\
-		in vec3 in_offset;\n\
-		in vec3 in_color;									\n\
-		out vec3 in_colorFrag;\n\
-		uniform mat4 objMat;\n\
-		uniform mat4 mv_Mat;\n\
-		uniform mat4 mvpMat;\n\
+		"#version 330								\n\
+		in vec3 in_Position;						\n\
+		in vec3 in_Normal;							\n\
+		in vec3 in_offset;							\n\
+		in vec3 in_color;							\n\
+		out vec3 in_colorFrag;						\n\
+		uniform mat4 objMat;						\n\
+		uniform mat4 mv_Mat;						\n\
+		uniform mat4 mvpMat;						\n\
+		uniform float currentTime;					\n\
 		void main() {\n\
-			gl_Position = mvpMat * objMat * vec4(in_Position + in_offset, 1.0);											\n\
+			gl_Position = mvpMat * objMat * vec4(in_Position + in_offset + vec3(0.,0.,sin((3.1415*in_offset.x/30.) + currentTime*2.)*5.), 1.0);											\n\
 			in_colorFrag = in_color;																								\n\
 			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
 		}";
@@ -679,6 +680,7 @@ namespace models3D {
 	void drawInstanced(model aModel, int count) {
 		glBindVertexArray(aModel.vao);
 		glUseProgram(aModel.instancedProgram);
+		glUniform1f(glGetUniformLocation(aModel.instancedProgram, "currentTime"), Time::ct);
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
@@ -694,6 +696,7 @@ namespace models3D {
 		glBindVertexArray(combined.vao);
 		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
 		glUseProgram(combined.multiProgram);
+		glUniform1f(glGetUniformLocation(combined.multiProgram, "currentTime"), Time::ct);
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(combined.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
