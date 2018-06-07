@@ -19,6 +19,9 @@ namespace constants {
 	const int TOTAL = MAX_HORIZONTAL* MAX_VERTICAL;	//total nº of models per each type
 }
 
+namespace Time {
+	float ct = 0.f;
+}
 
 extern bool loadOBJ(const char * path, std::vector < glm::vec3 > & out_vertices, std::vector < glm::vec2 > & out_uvs, std::vector < glm::vec3 > & out_normals);
 
@@ -138,7 +141,7 @@ namespace models3D {
 	void cleanup(model aModel);
 	void cleanup(combinedModel combined);
 	void draw(model aModel);
-	void drawFlat(model aModel);
+	void drawFlat(model aModel, float xIndex);
 	void drawInstanced(model aModel, int count);
 	void multiDraw(combinedModel combineModel);
 	model dolphin, tuna, golden_fish, whale,sun;
@@ -214,6 +217,7 @@ void GLcleanup() {
 }
 
 void GLrender(double currentTime) {
+	Time::ct = currentTime;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	Scene::renderUI();
@@ -225,8 +229,6 @@ void GLrender(double currentTime) {
 	RV::_modelView = glm::rotate(RV::_modelView, RV::rota[0], glm::vec3(0.f, 1.f, 0.f));
 	RV::_MVP = RV::_projection * RV::_modelView;
 
-
-	float modelSeparation = 0.2f;
 
 	switch (Scene::renderOption)
 	{
@@ -242,14 +244,14 @@ void GLrender(double currentTime) {
 				models3D::whale.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
 				models3D::golden_fish.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
 
-				models3D::drawFlat(models3D::whale);
-				models3D::drawFlat(models3D::golden_fish);
+				models3D::drawFlat(models3D::whale,x);
+				models3D::drawFlat(models3D::golden_fish,x+0.5f);
 
 			}
 
 		}
 	}
-	break;
+		break;
 	case 1:												//Draw instancing
 		models3D::whale.objMat = glm::mat4();			//reset objMat's so the models don't appear displaced
 		models3D::golden_fish.objMat = glm::mat4();
@@ -305,13 +307,15 @@ namespace models3D {
 
 	const char* models3D_vertShader =
 		"#version 330\n\
-		in vec3 in_Position;\n\
-		in vec3 in_Normal;\n\
-		uniform mat4 objMat;\n\
-		uniform mat4 mv_Mat;\n\
-		uniform mat4 mvpMat;\n\
+		in vec3 in_Position;						\n\
+		in vec3 in_Normal;							\n\
+		uniform mat4 objMat;						\n\
+		uniform mat4 mv_Mat;						\n\
+		uniform mat4 mvpMat;						\n\
+		uniform float currentTime;					\n\
+		uniform float xIndex;					\n\
 		void main() {\n\
-			gl_Position = mvpMat * objMat * vec4(in_Position, 1.0);											\n\
+			gl_Position = mvpMat * objMat * vec4(in_Position + vec3(0.,0.,sin((3.1415*xIndex/3.) + currentTime*2.)*5.), 1.0);					\n\
 			//vert_Normal = mv_Mat * objMat * vec4(in_Normal, 0.0);											\n\
 																											\n\
 		}";
@@ -521,9 +525,6 @@ namespace models3D {
 		glBindAttribLocation(newModel.instancedProgram, 3, "in_color");
 		linkProgram(newModel.instancedProgram);
 
-		//Flat shader +  multiDrawIndirect
-		//TODO
-
 		return newModel;
 	}
 
@@ -541,7 +542,6 @@ namespace models3D {
 
 		combined.allColors = firstModel.allColors;
 		combined.allColors.insert(combined.allColors.end(), secondModel.allColors.begin(), secondModel.allColors.end());
-
 
 		//Draw command for the "first" models
 		combined.commands[0].vertexCount	= firstModel.vertices.size();
@@ -584,6 +584,10 @@ namespace models3D {
 		glEnableVertexAttribArray(3);
 		glVertexAttribDivisor(3, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
 
+		//Draw commands
+		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
+		glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(combined.commands), &combined.commands, GL_STATIC_DRAW);
+
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -601,8 +605,6 @@ namespace models3D {
 		glBindAttribLocation(combined.multiProgram, 3, "in_color");
 		linkProgram(combined.multiProgram);
 
-		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, combined.vbo[4]);
-		glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(combined.commands), &combined.commands, GL_STATIC_DRAW);
 
 
 		return combined;
@@ -659,9 +661,11 @@ namespace models3D {
 		glBindVertexArray(0);*/
 	}
 
-	void drawFlat(model aModel) {
+	void drawFlat(model aModel, float xIndex) {
 		glBindVertexArray(aModel.vao);
 		glUseProgram(aModel.flatProgram);
+		glUniform1f(glGetUniformLocation(aModel.flatProgram, "currentTime"), Time::ct);
+		glUniform1f(glGetUniformLocation(aModel.flatProgram, "xIndex"), xIndex);
 		glUniformMatrix4fv(glGetUniformLocation(aModel.flatProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.flatProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.flatProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
