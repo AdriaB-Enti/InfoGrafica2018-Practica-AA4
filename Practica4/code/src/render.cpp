@@ -99,18 +99,46 @@ namespace models3D {
 	    glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[4];					//3: Vertex positions and normals. + offset model positions + model colors
+		GLuint vbo[4];					//4: Vertex positions and normals. + offset model positions + model colors
 		GLuint shaders[5];
 		GLuint program, flatProgram, instancedProgram;
 	};
 
+	typedef struct
+	{
+	public:
+		GLuint vertexCount;
+		GLuint instanceCount;
+		GLuint firstIndex;
+		GLuint baseInstance;
+	} SDrawArraysIndirectCommand;
+
+	struct combinedModel
+	{
+	public:
+		std::vector< glm::vec3 > vertices;
+		std::vector< glm::vec2 > uvs;
+		std::vector< glm::vec3 > normals;
+		std::vector< glm::vec3 > offsetPositions;	//to be used in instanced drawing
+		std::vector< glm::vec3 > allColors;			//to be used in instanced drawing
+		glm::mat4 objMat = glm::mat4(1.f);
+
+		GLuint vao;
+		GLuint vbo[4];					//4: Vertex positions + normals + offset model positions + model colors
+		GLuint shaders[2];				//Vertex and fragment
+		GLuint multiProgram;
+	};
+
+
 	model create(std::string modelName, glm::vec3 position, float scale, bool even, glm::vec3 initColor = glm::vec3(0.7f, 0.65f, 0.34f));
+	combinedModel combineModels(model firstModel, model secondModel);
 	void cleanup(model aModel);
 	void draw(model aModel);
 	void drawFlat(model aModel);
 	void drawInstanced(model aModel, int count);
-	void multiDraw(model combinedModels, int count);
+	void multiDraw(combinedModel combineModel);
 	model dolphin, tuna, golden_fish, whale,sun;
+	combinedModel allModels;
 }
 
 
@@ -161,8 +189,11 @@ void GLinit(int width, int height) {
 
 	models3D::whale = models3D::create("models/whale.obj", glm::vec3(0, 0, 0), 1.f, true, glm::vec3(0.1f, 0.0f, 0.1f));
 	models3D::golden_fish = models3D::create("models/golden_fish.obj",	glm::vec3(0, 0, 0),	1.f, false, glm::vec3(0.97f,0.53f,0.23f));
-	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
 
+	models3D::allModels = models3D::combineModels(models3D::whale, models3D::golden_fish);
+
+
+	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
 	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
 	//models3D::provaModel = models3D::create("treeTriangulated.obj", glm::vec3(0, 0, 0), 0.2f);
 }
@@ -220,7 +251,7 @@ void GLrender(double currentTime) {
 		models3D::drawInstanced(models3D::golden_fish, constants::MAX_HORIZONTAL*constants::MAX_VERTICAL);
 		break;
 	case 2:												//dibuixar MultiDrawIndirect
-
+		models3D::multiDraw(models3D::allModels);
 		break;
 	default:
 		break;
@@ -489,6 +520,66 @@ namespace models3D {
 		return newModel;
 	}
 
+	combinedModel combineModels(model firstModel, model secondModel) {
+		combinedModel combined;
+		combined.objMat = glm::mat4();
+		combined.vertices = firstModel.vertices;
+		combined.normals = firstModel.normals;
+		combined.offsetPositions = firstModel.offsetPositions;
+		combined.allColors = firstModel.allColors;
+
+
+		//Create LoadedObject program
+		glGenVertexArrays(1, &combined.vao);
+		glBindVertexArray(combined.vao);
+		glGenBuffers(4, combined.vbo);		//------- Object vertexs, normals, offset positions & colors
+
+		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, combined.vertices.size() * sizeof(glm::vec3), &combined.vertices[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(0);
+
+		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[1]);
+		glBufferData(GL_ARRAY_BUFFER, combined.normals.size() * sizeof(glm::vec3), &combined.normals[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(1);
+
+		//'send' model positions
+		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[2]);
+		glBufferData(GL_ARRAY_BUFFER, combined.offsetPositions.size() * sizeof(glm::vec3), &combined.offsetPositions[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(2);
+		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
+
+										//'send' model colors-TODO--------------------------------------------
+		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[3]);
+		glBufferData(GL_ARRAY_BUFFER, combined.allColors.size() * sizeof(glm::vec3), &combined.allColors[0], GL_STATIC_DRAW);
+		glVertexAttribPointer((GLuint)3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		glEnableVertexAttribArray(3);
+		glVertexAttribDivisor(3, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
+
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
+		combined.shaders[0] = compileShader(models3D_vertInstancedShader, GL_VERTEX_SHADER, "instancedVert");
+		combined.shaders[1] = compileShader(models3D_instancedFragShader, GL_FRAGMENT_SHADER, "instancedFragShader");
+
+		combined.multiProgram = glCreateProgram();
+		glAttachShader(combined.multiProgram, combined.shaders[0]);
+		glAttachShader(combined.multiProgram, combined.shaders[1]);
+		glBindAttribLocation(combined.multiProgram, 0, "in_Position");
+		glBindAttribLocation(combined.multiProgram, 1, "in_Normal");
+		glBindAttribLocation(combined.multiProgram, 2, "in_offset");
+		glBindAttribLocation(combined.multiProgram, 3, "in_color");
+		linkProgram(combined.multiProgram);
+
+
+
+		return combined;
+	}
+
 	void cleanup(model aModel) {
 		glDeleteBuffers(4, aModel.vbo);
 		glDeleteVertexArrays(1, &aModel.vao);
@@ -554,7 +645,31 @@ namespace models3D {
 		glBindVertexArray(0);
 	}
 
-	void multiDraw(model combinedModels, int count) {
+	void multiDraw(combinedModel combined) {
+		glBindVertexArray(combined.vao);
+		glUseProgram(combined.multiProgram);
+		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(combined.objMat));
+		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
+		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
+		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
+		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
+		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, combined.vertices.size(), combined.offsetPositions.size(), 0);
+		
+		glUseProgram(0);
+		glBindVertexArray(0);
+
+
+
+
+
+
+
+
+
 
 	}
+
+
+
+
 }
