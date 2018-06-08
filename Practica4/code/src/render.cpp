@@ -11,8 +11,6 @@
 #include "GL_framework.h"
 
 
-#define DEBUG_LOG false
-
 namespace constants {
 	const int MAX_HORIZONTAL = 10;
 	const int MAX_VERTICAL = 10;
@@ -20,7 +18,7 @@ namespace constants {
 }
 
 namespace Time {
-	float ct = 0.f;
+	float ct = 0.f;			//current time - so we don't have to pass the value by parameter every time
 }
 
 extern bool loadOBJ(const char * path, std::vector < glm::vec3 > & out_vertices, std::vector < glm::vec2 > & out_uvs, std::vector < glm::vec3 > & out_normals);
@@ -35,7 +33,6 @@ namespace RenderVars {
 	const float FOV = glm::radians(65.f);
 	const float zNear = 0.2f;
 	const float zFar = 500.f;										//Far plane (how far the camera can see)
-	const float cameraSeparation = 10.f;
 
 	glm::mat4 _projection;
 	glm::mat4 _modelView;
@@ -49,7 +46,7 @@ namespace RenderVars {
 		bool waspressed = false;
 	} prevMouse;
 
-	float panv[3] = { -46.f, -46.f, -95.f };							//Change the '-50f' if camera has to start further or closer
+	float panv[3] = { -46.f, -46.f, -95.f };							//Change the last value if camera has to start farther or closer
 	float rota[2] = { 0.f, 0.f };
 	void setPosition(glm::vec3 newPos) {
 		panv[0] = newPos.x;
@@ -59,26 +56,15 @@ namespace RenderVars {
 	glm::vec3 getPosition() {
 		return glm::vec3(panv[0], panv[1], panv[2]);
 	}
-	int cameraMode = 0;
 	
-
-	void resetRotation() {
-		rota[0] = 0;
-		rota[1] = 0;
-	}
 }
 namespace RV = RenderVars;
 
-//Custom namespaces
-namespace Lights {
-
-}
 
 namespace Scene {
 	static int renderOption = 0;
 
 	void renderUI() {
-		
 		ImGui::Begin("Parameters");
 		ImGui::Separator();
 		ImGui::RadioButton("Looped", &renderOption, 0);
@@ -87,7 +73,7 @@ namespace Scene {
 		ImGui::End();
 	}
 
-	}
+}
 
 
 namespace models3D {
@@ -103,7 +89,7 @@ namespace models3D {
 	    glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[4];					//4: Vertex positions and normals. + offset model positions + model colors
+		GLuint vbo[4];					//Vertex positions + normals. + offset model positions + model colors
 		GLuint shaders[5];
 		GLuint program, flatProgram, instancedProgram;
 	};
@@ -117,7 +103,7 @@ namespace models3D {
 		GLuint baseInstance;
 	} SDrawArraysIndirectCommand;
 
-	struct combinedModel
+	struct combinedModel							//Model struct only used in MultiDrawIndirect
 	{
 	public:
 		std::vector< glm::vec3 > vertices;
@@ -128,7 +114,7 @@ namespace models3D {
 		glm::mat4 objMat = glm::mat4(1.f);
 
 		GLuint vao;
-		GLuint vbo[5];					//4: Vertex positions + normals + offset model positions + model colors
+		GLuint vbo[5];					//Vertex positions + normals + offset model positions + model colors + Draw commands
 		GLuint shaders[2];				//Vertex and fragment
 		GLuint multiProgram;
 
@@ -140,11 +126,10 @@ namespace models3D {
 	combinedModel combineModels(model firstModel, model secondModel);
 	void cleanup(model aModel);
 	void cleanup(combinedModel combined);
-	void draw(model aModel);
 	void drawFlat(model aModel, float xIndex);
 	void drawInstanced(model aModel, int count);
 	void multiDraw(combinedModel combineModel);
-	model dolphin, tuna, golden_fish, whale,sun;
+	model golden_fish, whale;
 	combinedModel allModels;
 }
 
@@ -200,19 +185,11 @@ void GLinit(int width, int height) {
 	//Used for multiDrawIndirect
 	models3D::allModels = models3D::combineModels(models3D::whale, models3D::golden_fish);
 
-
-	//models3D::tuna = models3D::create(	"models/tuna.obj",	glm::vec3(0, 0, 0),	0.003f, glm::vec3(1.f,0.0f,1.f));
-	//models3D::sun = models3D::create("models/sun.obj",	glm::vec3(0, 0, 0), 0.3f, glm::vec3(0));
-	//models3D::provaModel = models3D::create("treeTriangulated.obj", glm::vec3(0, 0, 0), 0.2f);
 }
 
 void GLcleanup() {
-	/*models3D::cleanup(models3D::dolphin);
-	models3D::cleanup(models3D::tuna);*/
-	//models3D::cleanup(models3D::sun);
 	models3D::cleanup(models3D::whale);
 	models3D::cleanup(models3D::golden_fish);
-
 	models3D::cleanup(models3D::allModels);
 }
 
@@ -248,7 +225,6 @@ void GLrender(double currentTime) {
 				models3D::drawFlat(models3D::golden_fish,x+0.5f);
 
 			}
-
 		}
 	}
 		break;
@@ -426,7 +402,7 @@ namespace models3D {
 
 		bool res = loadOBJ(modelName.c_str(), newModel.vertices, newModel.uvs, newModel.normals);
 
-		if (DEBUG_LOG) //Posar a true si es vol debugar els vertexs
+		if (false) //Posar a true si es vol debugar els vertexs
 		{
 			for (int i = 0; i < newModel.vertices.size(); i++)
 			{
@@ -439,7 +415,7 @@ namespace models3D {
 			std::cout << "ERROR AT LOADING OBJECT \n";
 
 
-		//Create offset positions for Instanced drawing
+		//Create offset positions and model colors for Instanced drawing
 		glm::vec3 offPos = position;
 		glm::vec3 OFFSET = glm::vec3(10.0, 10.0, -20);
 		
@@ -459,10 +435,9 @@ namespace models3D {
 			}
 		}
 
-		//Create LoadedObject program
 		glGenVertexArrays(1, &newModel.vao);
 		glBindVertexArray(newModel.vao);
-		glGenBuffers(4, newModel.vbo);		//------- Object vertexs, normals, offset positions & colors
+		glGenBuffers(4, newModel.vbo);		//Object vertexs, normals, offset positions & colors
 
 		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, newModel.vertices.size() * sizeof(glm::vec3), &newModel.vertices[0], GL_STATIC_DRAW);
@@ -479,14 +454,14 @@ namespace models3D {
 		glBufferData(GL_ARRAY_BUFFER, newModel.offsetPositions.size() * sizeof(glm::vec3), &newModel.offsetPositions[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)2, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(2);
-		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
+		glVertexAttribDivisor(2, 1);	//vertex attrib being used - how often vertexDivisor changes
 
-		//'send' model colors-TODO--------------------------------------------
+		//'send' model colors
 		glBindBuffer(GL_ARRAY_BUFFER, newModel.vbo[3]);
 		glBufferData(GL_ARRAY_BUFFER, newModel.allColors.size() * sizeof(glm::vec3), &newModel.allColors[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)3, 3, GL_FLOAT, GL_FALSE, 0, 0);
 		glEnableVertexAttribArray(3);
-		glVertexAttribDivisor(3, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
+		glVertexAttribDivisor(3, 1);	//vertex attrib being used - how often vertexDivisor changes
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -533,16 +508,16 @@ namespace models3D {
 		combinedModel combined;
 		combined.objMat = glm::mat4();
 		combined.vertices = firstModel.vertices;
-		combined.vertices.insert(combined.vertices.end(), secondModel.vertices.begin(), secondModel.vertices.end()); //add 1st and 2nd model vertices together
-		
 		combined.normals = firstModel.normals;
-		combined.normals.insert(combined.normals.end(), secondModel.normals.begin(), secondModel.normals.end());
-
+		combined.allColors = firstModel.allColors;
 		combined.offsetPositions = firstModel.offsetPositions;
+		
+		//Combine model1 and model2 vertices, normals, colors and positions
+		combined.vertices.insert(combined.vertices.end(), secondModel.vertices.begin(), secondModel.vertices.end());
+		combined.normals.insert(combined.normals.end(), secondModel.normals.begin(), secondModel.normals.end());
+		combined.allColors.insert(combined.allColors.end(), secondModel.allColors.begin(), secondModel.allColors.end());
 		combined.offsetPositions.insert(combined.offsetPositions.end(), secondModel.offsetPositions.begin(), secondModel.offsetPositions.end());
 
-		combined.allColors = firstModel.allColors;
-		combined.allColors.insert(combined.allColors.end(), secondModel.allColors.begin(), secondModel.allColors.end());
 
 		//Draw command for the "first" models
 		combined.commands[0].vertexCount	= firstModel.vertices.size();
@@ -559,7 +534,7 @@ namespace models3D {
 		//Create LoadedObject program
 		glGenVertexArrays(1, &combined.vao);
 		glBindVertexArray(combined.vao);
-		glGenBuffers(5, combined.vbo);		//------- Object vertexs, normals, offset positions & colors
+		glGenBuffers(5, combined.vbo);		//Object vertexs, normals, offset positions, colors & draw commands
 
 		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[0]);
 		glBufferData(GL_ARRAY_BUFFER, combined.vertices.size() * sizeof(glm::vec3), &combined.vertices[0], GL_STATIC_DRAW);
@@ -578,7 +553,7 @@ namespace models3D {
 		glEnableVertexAttribArray(2);
 		glVertexAttribDivisor(2, 1);	//array de vertex attrib que utilitza. - cada quan ha de canviar el vertexDivisor
 
-										//'send' model colors
+		//'send' model colors
 		glBindBuffer(GL_ARRAY_BUFFER, combined.vbo[3]);
 		glBufferData(GL_ARRAY_BUFFER, combined.allColors.size() * sizeof(glm::vec3), &combined.allColors[0], GL_STATIC_DRAW);
 		glVertexAttribPointer((GLuint)3, 3, GL_FLOAT, GL_FALSE, 0, 0);
@@ -607,7 +582,6 @@ namespace models3D {
 		linkProgram(combined.multiProgram);
 
 
-
 		return combined;
 	}
 
@@ -622,7 +596,6 @@ namespace models3D {
 		glDeleteShader(aModel.shaders[2]);
 		glDeleteShader(aModel.shaders[3]);
 		glDeleteShader(aModel.shaders[4]);
-
 	}
 
 	void cleanup(combinedModel combined) {
@@ -632,35 +605,8 @@ namespace models3D {
 		glDeleteProgram(combined.multiProgram);
 		glDeleteShader(combined.shaders[0]);
 		glDeleteShader(combined.shaders[1]);
-
 	}
 
-
-	void draw(model aModel) {
-		/*glBindVertexArray(aModel.vao);
-		glUseProgram(aModel.program);
-		//Model
-		glUniformMatrix4fv(glGetUniformLocation(aModel.program, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
-		glUniformMatrix4fv(glGetUniformLocation(aModel.program, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
-		glUniformMatrix4fv(glGetUniformLocation(aModel.program, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		glUniform4f(glGetUniformLocation(aModel.program, "color"), aModel.color.r, aModel.color.g, aModel.color.b, 1.f); //lightColor1
-		//Lights
-		glUniform3f(glGetUniformLocation(aModel.program, "lightColor1"), models3D::sun.color.r,		models3D::sun.color.g,		models3D::sun.color.b);
-		glUniform3f(glGetUniformLocation(aModel.program, "ambientColor"), Lights::currentAmbientColor.r, Lights::currentAmbientColor.g, Lights::currentAmbientColor.b);
-		glUniform4f(glGetUniformLocation(aModel.program, "light1Pos"), Lights::sunPosition.x, Lights::sunPosition.y, Lights::sunPosition.z, 1.f);						//Sun
-		glUniform4f(glGetUniformLocation(aModel.program, "light2Pos"), Lights::moonPosition.x, Lights::moonPosition.y, Lights::moonPosition.z, 1.f);					//Moon
-		glUniform4f(glGetUniformLocation(aModel.program, "light3Pos"), Lights::lightBulbPosition.x, Lights::lightBulbPosition.y, Lights::lightBulbPosition.z, 1.f);		//Light bulb
-		glUniform1f(glGetUniformLocation(aModel.program, "ambientStrenght"), Lights::AMBIENT_LIGHT_STRENGHT);
-		glUniform1f(glGetUniformLocation(aModel.program, "light1Brightnes"), Lights::currentSunBrightness);
-		glUniform1f(glGetUniformLocation(aModel.program, "lightBulbBrightnes"), Lights::LIGHT_BULB_BRIGHTNESS);
-		glUniform1i(glGetUniformLocation(aModel.program, "toonShaderOption"), Lights::toonShaderState);
-
-
-		glDrawArrays(GL_TRIANGLES, 0, aModel.vertices.size());
-
-		glUseProgram(0);
-		glBindVertexArray(0);*/
-	}
 
 	void drawFlat(model aModel, float xIndex) {
 		glBindVertexArray(aModel.vao);
@@ -684,7 +630,6 @@ namespace models3D {
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(aModel.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(aModel.instancedProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
 		//glDrawArraysInstanced(GL_TRIANGLES, 0, aModel.vertices.size(), count);
 		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, aModel.vertices.size(), count, 0);
 
@@ -700,17 +645,11 @@ namespace models3D {
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "objMat"), 1, GL_FALSE, glm::value_ptr(combined.objMat));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mv_Mat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_modelView));
 		glUniformMatrix4fv(glGetUniformLocation(combined.multiProgram, "mvpMat"), 1, GL_FALSE, glm::value_ptr(RenderVars::_MVP));
-		//glUniform4f(glGetUniformLocation(aModel.instancedProgram, "color"), aModel.color.x, aModel.color.y, aModel.color.z, 1.f);
-		//glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, combined.vertices.size(), combined.offsetPositions.size(), 0);
-
 
 		//One single draw call... to rule them all
 		glMultiDrawArraysIndirect(GL_TRIANGLES, 0, 2, 0);
 
-
 		glUseProgram(0);
 		glBindVertexArray(0);
-
-
 	}
 }
