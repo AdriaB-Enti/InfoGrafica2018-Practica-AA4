@@ -241,8 +241,8 @@ void GLrender(double currentTime) {
 				models3D::whale.objMat = glm::translate(glm::mat4(), glm::vec3(0 + (10.0*x), 0 + (10.0*y), -20));
 				models3D::golden_fish.objMat = glm::translate(glm::mat4(), glm::vec3(5.0 + (10.0*x), 0.0 + (10.0*y), -20));
 
-				models3D::whale.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
-				models3D::golden_fish.color = glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f);
+				models3D::whale.color = glm::vec3(1.f - (float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, (float)x / constants::MAX_HORIZONTAL);
+				models3D::golden_fish.color = glm::vec3(1.f - (float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, (float)x / constants::MAX_HORIZONTAL);
 
 				models3D::drawFlat(models3D::whale,x);
 				models3D::drawFlat(models3D::golden_fish,x+0.5f);
@@ -454,7 +454,7 @@ namespace models3D {
 				}
 
 				newModel.offsetPositions.push_back(offPos);
-				newModel.allColors.push_back(glm::vec3((float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, 0.f));
+				newModel.allColors.push_back(glm::vec3(1.f - (float)x / constants::MAX_HORIZONTAL, (float)y / constants::MAX_VERTICAL, (float)x / constants::MAX_HORIZONTAL));
 
 			}
 		}
